@@ -8,7 +8,12 @@ cryptography==50.0.1
 dnspython==2.8.0
 google-crc32c==1.8.0
 ifaddr==0.2.0
-numpy==2.2.6
+# numpy 2.2.6 is the last series with Python 3.10 wheels (Ubuntu 22.04); 2.3.x is the
+# first with 3.14 wheels (Fedora 44). Neither covers both, so pin per interpreter.
+# Only the usual frombuffer/full/zeros/clip calls in media.py touch numpy, but 2.3.5
+# has not been re-tested against a receiver yet.
+numpy==2.2.6; python_version < "3.11"
+numpy==2.3.5; python_version >= "3.11"
 pycparser==3.0
 pyee==13.0.1
 pylibsrtp==1.0.0

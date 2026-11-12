@@ -29,16 +29,24 @@ Tabs: pick the browser window. The TV shows whichever tab is in front, with its 
 
 ## Requirements
 
-- Ubuntu 22.04 or similar, logged in to an **X11** session ("Ubuntu on Xorg" on the
-  login screen's gear menu). Screen capture here uses X11, so Wayland won't work.
+- A Linux desktop logged in to an **X11** session. Screen capture and the window
+  list use X11 (libwnck), so Wayland won't work — pick the X11/Xorg session at the
+  login screen ("Ubuntu on Xorg" on Ubuntu, "Plasma (X11)" on KDE).
 - PulseAudio or PipeWire-Pulse (`parec`, `pactl`)
 - These system packages (the installer checks for them and prints the command if
   any are missing):
 
   ```
+  # Debian/Ubuntu
   sudo apt install python3-venv python3-gi gir1.2-gtk-3.0 gir1.2-wnck-3.0 \
                    gir1.2-notify-0.7 pulseaudio-utils zenity
+
+  # Fedora (verified on Fedora 44; venv ships with python3 here)
+  sudo dnf install python3-gobject gtk3 libwnck3 libnotify pulseaudio-utils zenity
   ```
+
+  On other distros the installer checks for the commands and GTK bindings
+  themselves instead of package names, and names what's missing.
 
 - The computer must be able to reach the receiver on TCP 7300, plus UDP for the
   video. On a campus network that usually means being on the same network as the
@@ -53,7 +61,7 @@ cd airmedia-share
 ```
 
 Read the installer's output. If a system package is missing, it stops before
-installing anything and prints the `sudo apt install …` line to run; run that, then
+installing anything and prints the install command for your distro; run that, then
 `./install.sh` again. It also needs internet access to download the pinned Python
 packages. It ends with a self-check, and "AirMedia Share" is in the app menu
 only after that. If you got the folder from a zip and `./install.sh` says "Permission
@@ -154,7 +162,7 @@ airmedia-share --check --deep   # also does the receiver handshake (the TV brief
 | No sound on the TV | Check the Sound switch and slider. For a window, only that app's sound is sent: is it the app that's actually playing? Some apps play sound from a helper process, which is also matched. |
 | Picture is soft, or stutters on slow Wi-Fi | In `settings.json`, set `"max_mbps"` lower (e.g. 8) or higher (up to ~24). Try `"video_codec": "H264"` if a firmware update stops accepting VP8. |
 | App won't open, and nothing happens | Check `~/.cache/airmedia-share/sender.log`. A run from a terminal (`airmedia-share`) prints errors too. |
-| Wayland session | Log out, choose "Ubuntu on Xorg" from the login screen's gear menu. |
+| Wayland session | Log out and choose an X11/Xorg session at the login screen ("Ubuntu on Xorg", "Plasma (X11)"). |
 
 ## Update, repair, uninstall
 

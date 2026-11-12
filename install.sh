@@ -2,7 +2,7 @@
 # Install (or repair) AirMedia Share for the current user. No sudo; nothing system-wide.
 #
 #   ./install.sh            install or update from this folder
-#   ./install.sh --repair   rebuild the Python environment (e.g. after an Ubuntu upgrade);
+#   ./install.sh --repair   rebuild the Python environment (e.g. after a distro upgrade);
 #                           works from the installed copy too:
 #                           ~/.local/share/airmedia-share/install.sh --repair
 #
@@ -35,21 +35,70 @@ else
 fi
 
 # ---- system requirements (reported, never installed with sudo behind your back)
-missing=()
-for pkg in python3-venv python3-gi gir1.2-gtk-3.0 gir1.2-wnck-3.0 gir1.2-notify-0.7 \
-           pulseaudio-utils zenity; do
-    dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed" \
-        || missing+=("$pkg")
-done
-if ((${#missing[@]})); then
-    echo "Missing system packages, so nothing was installed yet. Install them, then" >&2
-    echo "run this again:" >&2
-    echo "    sudo apt install ${missing[*]}" >&2
-    exit 1
+# Names verified on the distros listed; anything else only gets the generic list.
+case "$(. /etc/os-release 2>/dev/null; echo "${ID:-} ${ID_LIKE:-}")" in
+    *debian*|*ubuntu*)
+        PM_INSTALL="sudo apt install"
+        PKGS=(python3-venv python3-gi gir1.2-gtk-3.0 gir1.2-wnck-3.0 gir1.2-notify-0.7
+              pulseaudio-utils zenity)
+        have_pkg() {
+            dpkg-query -W -f='${Status}' "$1" 2>/dev/null \
+                | grep -q "install ok installed"
+        }
+        ;;
+    *fedora*|*rhel*)
+        # Verified on Fedora 44 (2026-11-12): the Gtk/Wnck/Notify typelibs ship in the
+        # library packages themselves, python3-gobject pulls in the cairo bindings a
+        # GTK app needs, and venv comes with python3 — there is no python3-venv.
+        PM_INSTALL="sudo dnf install"
+        PKGS=(python3-gobject gtk3 libwnck3 libnotify pulseaudio-utils zenity)
+        have_pkg() { rpm -q "$1" >/dev/null 2>&1; }
+        ;;
+    *)
+        PM_INSTALL=""
+        PKGS=()
+        ;;
+esac
+
+if ((${#PKGS[@]})); then
+    missing=()
+    for pkg in "${PKGS[@]}"; do
+        have_pkg "$pkg" || missing+=("$pkg")
+    done
+    if ((${#missing[@]})); then
+        echo "Missing system packages, so nothing was installed yet. Install them, then" >&2
+        echo "run this again:" >&2
+        echo "    $PM_INSTALL ${missing[*]}" >&2
+        exit 1
+    fi
+else
+    # Unknown distro: check what the app actually calls for, not package names.
+    missing=()
+    for tool in parec pactl zenity; do
+        command -v "$tool" >/dev/null || missing+=("$tool")
+    done
+    /usr/bin/python3 - <<'EOF' 2>/dev/null || missing+=("Python GTK3 bindings (Gtk 3.0, Wnck 3.0, Notify 0.7)")
+import gi
+for ns, ver in (("Gtk", "3.0"), ("Wnck", "3.0"), ("Notify", "0.7")):
+    gi.require_version(ns, ver)
+    __import__("gi.repository", fromlist=[ns])
+EOF
+    /usr/bin/python3 -c "import venv, ensurepip" 2>/dev/null \
+        || missing+=("Python venv support (ensurepip)")
+    if ((${#missing[@]})); then
+        echo "This distro is not one install.sh knows package names for, and these" >&2
+        echo "requirements are not met yet:" >&2
+        printf '    %s\n' "${missing[@]}" >&2
+        echo "Install your distro's equivalents and run this again. Please report the" >&2
+        echo "names that worked: https://github.com/Just-Antonio/airmedia-share/issues/1" >&2
+        exit 1
+    fi
 fi
+
 if [[ "${XDG_SESSION_TYPE:-x11}" == "wayland" ]]; then
-    echo "Note: this session is Wayland. AirMedia Share captures the screen through X11;"
-    echo "      choose “Ubuntu on Xorg” at the login screen to use it."
+    echo "Note: this session is Wayland. AirMedia Share captures the screen and lists"
+    echo "      windows through X11 (libwnck), which does not work under Wayland."
+    echo "      Log out and pick an X11/Xorg session for your desktop, then run it there."
 fi
 
 # ---- private Python environment
